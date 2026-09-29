@@ -2,6 +2,7 @@
 
 import { Plugin } from '@opencode/plugin/tui'
 import { useTerminalDimensions } from '@opentui/solid'
+import { jsx } from '@opentui/solid/jsx-runtime'
 import { Show as show, For as forEach, createEffect, createSignal, on } from 'solid-js'
 import { usageRpc, type QuotaSnapshot } from './rpc.js'
 
@@ -140,23 +141,12 @@ function Status(props: { context: Plugin.Context; state: State; refresh: () => P
                       return groups()
                     },
                     children: (group: QuotaSnapshot[]) =>
-                      show({
-                        get when() {
-                          return isHovered()
+                      jsx('text', {
+                        get fg() {
+                          return props.context.theme.text.muted
                         },
                         get children() {
-                          return (
-                            <text fg={props.context.theme.text.muted}>
-                              {formatGroup(group, true)}
-                            </text>
-                          )
-                        },
-                        get fallback() {
-                          return (
-                            <text fg={props.context.theme.text.muted}>
-                              {formatGroup(group, false)}
-                            </text>
-                          )
+                          return formatGroup(group, isHovered())
                         }
                       })
                   })
