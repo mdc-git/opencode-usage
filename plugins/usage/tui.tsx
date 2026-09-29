@@ -2,7 +2,7 @@
 
 import { Plugin } from '@opencode/plugin/tui'
 import { useTerminalDimensions } from '@opentui/solid'
-import { Show as show, For as forEach } from 'solid-js'
+import { Show as show, For as forEach, createSignal } from 'solid-js'
 import { usageRpc, type QuotaSnapshot, type UsageResponse } from './rpc.js'
 
 type State = {
@@ -41,12 +41,12 @@ function formatRemaining(snapshot: QuotaSnapshot) {
 
 function formatResetAt(resetAt: QuotaSnapshot['resetAt']) {
   if (resetAt === null) {
-    return ''
+    return '—'
   }
 
   const date = new Date(resetAt)
   if (Number.isNaN(date.getTime())) {
-    return ''
+    return '—'
   }
 
   const value = new Intl.DateTimeFormat('de-DE', {
@@ -60,27 +60,31 @@ function formatResetAt(resetAt: QuotaSnapshot['resetAt']) {
   const days = Math.round((resetDay - today) / 86_400_000)
 
   if (days === 1) {
-    return ` (morgen, ${value})`
+    return `morgen, ${value}`
   }
 
   if (days > 1) {
-    return ` (in ${days} Tagen, ${value})`
+    return `in ${days} Tagen, ${value}`
   }
 
-  return ` (${value})`
+  return value
 }
 
-function formatGroup(snapshots: QuotaSnapshot[]) {
+function formatGroup(snapshots: QuotaSnapshot[], isHovered: boolean) {
   const { provider, account } = snapshots[0]
   const windows = snapshots
-    .map((snapshot) => `${formatRemaining(snapshot)}${formatResetAt(snapshot.resetAt)}`)
+    .map((snapshot) => (isHovered ? formatResetAt(snapshot.resetAt) : formatRemaining(snapshot)))
     .join(' · ')
 
-  return `${provider}${account === undefined ? '' : ` ${account}`} · ${windows}`
+  const value = isHovered
+    ? windows
+    : `${provider}${account === undefined ? '' : ` ${account}`} · ${windows}`
+  return value
 }
 
 function Status(props: { context: Plugin.Context; state: State }) {
   const dimensions = useTerminalDimensions()
+  const [isHovered, setIsHovered] = createSignal(false)
   const selectedProvider = () => props.context.ui.model.current()?.providerID
   const groups = () =>
     Map.groupBy(
@@ -97,7 +101,17 @@ function Status(props: { context: Plugin.Context; state: State }) {
     },
     get children() {
       return (
-        <box flexDirection="row" gap={1} flexShrink={0}>
+        <box
+          flexDirection="row"
+          gap={1}
+          flexShrink={0}
+          onMouseOver={() => {
+            setIsHovered(true)
+          }}
+          onMouseOut={() => {
+            setIsHovered(false)
+          }}
+        >
           {show({
             get when() {
               return props.state.status === 'loading'
@@ -136,7 +150,9 @@ function Status(props: { context: Plugin.Context; state: State }) {
                       return groups()
                     },
                     children: (group: QuotaSnapshot[]) => (
-                      <text fg={props.context.theme.text.muted}>{formatGroup(group)}</text>
+                      <text fg={props.context.theme.text.muted}>
+                        {formatGroup(group, isHovered())}
+                      </text>
                     )
                   })
                 }
