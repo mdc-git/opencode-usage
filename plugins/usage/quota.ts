@@ -1,11 +1,6 @@
 import type { Plugin } from '@opencode/plugin'
 import { z } from 'zod'
-import type { QuotaSnapshot, UsageResponse } from './rpc.js'
-
-export type QuotaAdapter = {
-  readonly id: string
-  readonly read: (context: Plugin.Context, signal: AbortSignal) => Promise<readonly QuotaSnapshot[]>
-}
+import type { QuotaSnapshot } from './rpc.js'
 
 const OPENAI_USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage'
 const REQUEST_TIMEOUT_MS = 10_000
@@ -60,31 +55,22 @@ const openAiUsageSchema = z.preprocess(
   })
 )
 
-const adapters: readonly QuotaAdapter[] = [
-  {
-    id: 'openai',
-    read: readOpenAiQuota
-  }
-]
-
-async function readOpenAiQuota(
+export async function readQuotas(
   context: Plugin.Context,
   signal: AbortSignal
-): Promise<readonly QuotaSnapshot[]> {
+): Promise<QuotaSnapshot[]> {
   let account = 'Account'
 
   try {
     const connection = await context.integration.connection.active('openai')
     if (!connection) {
-      return [unavailable('OpenAI', 'No active OpenAI account', account)]
+      return [unavailable('No active OpenAI account', account)]
     }
 
     account = connection.type === 'credential' ? connection.label : 'Account'
     const credential = await context.integration.connection.resolve(connection)
     if (credential?.type !== 'oauth') {
-      return [
-        unavailable('OpenAI', 'The active OpenAI account is not a ChatGPT OAuth account', account)
-      ]
+      return [unavailable('The active OpenAI account is not a ChatGPT OAuth account', account)]
     }
 
     const accountId = credential.metadata?.accountID
@@ -100,7 +86,7 @@ async function readOpenAiQuota(
     })
 
     if (!response.ok) {
-      return [unavailable('OpenAI', `Usage endpoint returned HTTP ${response.status}`, account)]
+      return [unavailable(`Usage endpoint returned HTTP ${response.status}`, account)]
     }
 
     const payload = openAiUsageSchema.parse(await response.json())
@@ -112,18 +98,14 @@ async function readOpenAiQuota(
 
     return snapshots.length > 0
       ? snapshots
-      : [unavailable('OpenAI', 'No quota windows were returned', account)]
+      : [unavailable('No quota windows were returned', account)]
   } catch (error) {
     if (signal.aborted) {
       throw error
     }
 
     return [
-      unavailable(
-        'OpenAI',
-        error instanceof Error ? error.message : 'Unable to read OpenAI usage',
-        account
-      )
+      unavailable(error instanceof Error ? error.message : 'Unable to read OpenAI usage', account)
     ]
   }
 }
@@ -141,22 +123,16 @@ function snapshotForWindow(
     remaining: 100 - used,
     limit: 100,
     unit: 'percent',
-    resetAt: resetAt(window.resetAt),
+    resetAt: window.resetAt === undefined ? null : new Date(window.resetAt * 1000).toISOString(),
     observedAt,
     source: 'provider_api',
     status: 'available'
   }
 }
 
-function resetAt(timestamp: number | undefined) {
-  return timestamp !== undefined && Number.isFinite(timestamp)
-    ? new Date(timestamp * 1000).toISOString()
-    : null
-}
-
-function unavailable(provider: string, message: string, account = 'Account'): QuotaSnapshot {
+function unavailable(message: string, account: string): QuotaSnapshot {
   return {
-    provider,
+    provider: 'OpenAI',
     account,
     remaining: null,
     limit: null,
@@ -166,36 +142,5 @@ function unavailable(provider: string, message: string, account = 'Account'): Qu
     source: 'provider_api',
     status: 'unavailable',
     message
-  }
-}
-
-export async function readQuotas(
-  context: Plugin.Context,
-  signal: AbortSignal
-): Promise<UsageResponse> {
-  const results = await Promise.all(
-    adapters.map(async (adapter) => {
-      try {
-        return await adapter.read(context, signal)
-      } catch (error) {
-        if (signal.aborted) {
-          throw error
-        }
-
-        return [
-          unavailable(
-            adapter.id,
-            error instanceof Error ? error.message : 'Unable to read provider usage'
-          )
-        ]
-      }
-    })
-  )
-  const snapshots = results.flat()
-
-  return {
-    fetchedAt: new Date().toISOString(),
-    snapshots,
-    status: snapshots.length > 0 ? 'ready' : 'empty'
   }
 }

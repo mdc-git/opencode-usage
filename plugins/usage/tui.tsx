@@ -10,12 +10,6 @@ type State = {
   snapshots: UsageResponse['snapshots']
 }
 
-type SnapshotGroup = {
-  provider: string
-  account?: string
-  snapshots: QuotaSnapshot[]
-}
-
 function formatRemaining(snapshot: QuotaSnapshot) {
   if (snapshot.status !== 'available' || snapshot.remaining === null) {
     return '—'
@@ -65,10 +59,6 @@ function formatResetAt(resetAt: QuotaSnapshot['resetAt']) {
   const resetDay = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
   const days = Math.round((resetDay - today) / 86_400_000)
 
-  if (days === 0) {
-    return ` (${value})`
-  }
-
   if (days === 1) {
     return ` (morgen, ${value})`
   }
@@ -80,40 +70,24 @@ function formatResetAt(resetAt: QuotaSnapshot['resetAt']) {
   return ` (${value})`
 }
 
-function groupSnapshots(snapshots: readonly QuotaSnapshot[]) {
-  const groups = new Map<string, SnapshotGroup>()
-
-  for (const snapshot of snapshots) {
-    const key = `${snapshot.provider}\u{0}${snapshot.account ?? ''}`
-    const group = groups.get(key)
-    if (group) {
-      group.snapshots.push(snapshot)
-      continue
-    }
-
-    groups.set(key, {
-      provider: snapshot.provider,
-      account: snapshot.account,
-      snapshots: [snapshot]
-    })
-  }
-
-  return groups.values().toArray()
-}
-
-function formatGroup(group: SnapshotGroup) {
-  const account = group.account === undefined ? '' : ` ${group.account}`
-  const windows = group.snapshots
+function formatGroup(snapshots: QuotaSnapshot[]) {
+  const { provider, account } = snapshots[0]
+  const windows = snapshots
     .map((snapshot) => `${formatRemaining(snapshot)}${formatResetAt(snapshot.resetAt)}`)
     .join(' · ')
 
-  return `${group.provider}${account} ${windows}`
+  return `${provider}${account === undefined ? '' : ` ${account}`} · ${windows}`
 }
 
 function Status(props: { context: Plugin.Context; state: State }) {
   const dimensions = useTerminalDimensions()
-  const isCompact = () => dimensions().width < 80
-  const groups = () => groupSnapshots(props.state.snapshots)
+  const groups = () =>
+    Map.groupBy(
+      props.state.snapshots,
+      (snapshot) => `${snapshot.provider}\u{0}${snapshot.account ?? ''}`
+    )
+      .values()
+      .toArray()
 
   return (
     <box flexDirection="row" gap={1} flexShrink={0}>
@@ -128,7 +102,7 @@ function Status(props: { context: Plugin.Context; state: State }) {
       </Show>
       <Show when={props.state.status === 'ready'}>
         <Show
-          when={!isCompact()}
+          when={dimensions().width >= 80}
           fallback={<text fg={props.context.theme.text.muted}>{groups().length} providers</text>}
         >
           <For each={groups()}>

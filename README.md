@@ -46,7 +46,7 @@ Start an OpenCode session with the plugin enabled. The footer displays the activ
 format:
 
 ```text
-OpenAI account@example.com 76% (19:27) · 42% (in 4 Tagen, 19:45)
+OpenAI account@example.com · 76% (19:27) · 42% (in 4 Tagen, 19:45)
 ```
 
 The displayed times use German formatting. The account label comes from the active OpenCode connection.
