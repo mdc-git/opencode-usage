@@ -142,6 +142,12 @@ function Status(props: { context: Plugin.Context; state: State; refresh: () => P
                     },
                     children: (group: QuotaSnapshot[]) =>
                       jsx('text', {
+                        get width() {
+                          return Math.max(
+                            Bun.stringWidth(formatGroup(group, false)),
+                            Bun.stringWidth(formatGroup(group, true))
+                          )
+                        },
                         get fg() {
                           return props.context.theme.text.muted
                         },
