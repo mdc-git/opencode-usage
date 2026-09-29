@@ -2,12 +2,12 @@
 
 import { Plugin } from '@opencode/plugin/tui'
 import { useTerminalDimensions } from '@opentui/solid'
-import { Show as show, For as forEach, createSignal } from 'solid-js'
-import { usageRpc, type QuotaSnapshot, type UsageResponse } from './rpc.js'
+import { Show as show, For as forEach, createEffect, createSignal, on } from 'solid-js'
+import { usageRpc, type QuotaSnapshot } from './rpc.js'
 
 type State = {
-  status: 'loading' | 'empty' | 'ready' | 'error'
-  snapshots: UsageResponse['snapshots']
+  status: 'loading' | 'ready' | 'error'
+  snapshots: QuotaSnapshot[]
 }
 
 function formatRemaining(snapshot: QuotaSnapshot) {
@@ -20,23 +20,7 @@ function formatRemaining(snapshot: QuotaSnapshot) {
     notation: 'compact'
   }).format(snapshot.remaining)
 
-  if (snapshot.unit === 'dollars') {
-    return `$${value}`
-  }
-
-  if (snapshot.unit === 'tokens') {
-    return `${value} tok`
-  }
-
-  if (snapshot.unit === 'requests') {
-    return `${value} req`
-  }
-
-  if (snapshot.unit === 'percent') {
-    return `${value}%`
-  }
-
-  return value
+  return `${value}%`
 }
 
 function formatResetAt(resetAt: QuotaSnapshot['resetAt']) {
@@ -76,16 +60,23 @@ function formatGroup(snapshots: QuotaSnapshot[], isHovered: boolean) {
     .map((snapshot) => (isHovered ? formatResetAt(snapshot.resetAt) : formatRemaining(snapshot)))
     .join(' · ')
 
-  const value = isHovered
+  return isHovered
     ? windows
     : `${provider}${account === undefined ? '' : ` ${account}`} · ${windows}`
-  return value
 }
 
-function Status(props: { context: Plugin.Context; state: State }) {
+function currentLocation(context: Plugin.Context) {
+  const route = context.ui.router.current()
+  return route.type === 'session'
+    ? (context.data.session.get(route.sessionID)?.location ??
+        context.location ??
+        context.data.location.default())
+    : (context.location ?? context.data.location.default())
+}
+
+function Status(props: { context: Plugin.Context; state: State; refresh: () => Promise<void> }) {
   const dimensions = useTerminalDimensions()
   const [isHovered, setIsHovered] = createSignal(false)
-  const selectedProvider = () => props.context.ui.model.current()?.providerID
   const groups = () =>
     Map.groupBy(
       props.state.snapshots,
@@ -94,10 +85,24 @@ function Status(props: { context: Plugin.Context; state: State }) {
       .values()
       .toArray()
 
+  createEffect(
+    on(
+      () => [
+        props.context.ui.model.current()?.providerID,
+        currentLocation(props.context).directory
+      ],
+      async () => {
+        await props.refresh().catch(console.error)
+      },
+      { defer: true }
+    )
+  )
+
   // Installed TUI sources use runtime JSX, so dynamic conditions need reactive getters.
   return show({
     get when() {
-      return selectedProvider() === undefined || selectedProvider() === 'openai'
+      const provider = props.context.ui.model.current()?.providerID
+      return provider === undefined || provider === 'openai'
     },
     get children() {
       return (
@@ -116,19 +121,17 @@ function Status(props: { context: Plugin.Context; state: State }) {
             get when() {
               return props.state.status === 'loading'
             },
-            children: <text fg={props.context.theme.text.muted}>…</text>
-          })}
-          {show({
-            get when() {
-              return props.state.status === 'empty'
-            },
-            children: <text fg={props.context.theme.text.muted}>—</text>
+            get children() {
+              return <text fg={props.context.theme.text.muted}>…</text>
+            }
           })}
           {show({
             get when() {
               return props.state.status === 'error'
             },
-            children: <text fg={props.context.theme.text.feedback.error.base}>!</text>
+            get children() {
+              return <text fg={props.context.theme.text.feedback.error.base}>!</text>
+            }
           })}
           {show({
             get when() {
@@ -149,11 +152,26 @@ function Status(props: { context: Plugin.Context; state: State }) {
                     get each() {
                       return groups()
                     },
-                    children: (group: QuotaSnapshot[]) => (
-                      <text fg={props.context.theme.text.muted}>
-                        {formatGroup(group, isHovered())}
-                      </text>
-                    )
+                    children: (group: QuotaSnapshot[]) =>
+                      show({
+                        get when() {
+                          return isHovered()
+                        },
+                        get children() {
+                          return (
+                            <text fg={props.context.theme.text.muted}>
+                              {formatGroup(group, true)}
+                            </text>
+                          )
+                        },
+                        get fallback() {
+                          return (
+                            <text fg={props.context.theme.text.muted}>
+                              {formatGroup(group, false)}
+                            </text>
+                          )
+                        }
+                      })
                   })
                 }
               })
@@ -178,6 +196,7 @@ export default Plugin.define({
     const controller = new AbortController()
     let isRefreshing = false
     let shouldRefreshAgain = false
+    let isDisposed = false
 
     const refresh = async () => {
       if (controller.signal.aborted) {
@@ -190,12 +209,27 @@ export default Plugin.define({
       }
 
       isRefreshing = true
+      const { directory } = currentLocation(context)
 
       try {
-        const response = await usage.snapshot({}, { signal: controller.signal })
-        const status = response.snapshots.length > 0 ? 'ready' : 'empty'
+        const response = await usage.snapshot(
+          {},
+          {
+            signal: controller.signal,
+            location: { directory }
+          }
+        )
+        if (isDisposed) {
+          return
+        }
+
+        if (directory !== currentLocation(context).directory) {
+          shouldRefreshAgain = true
+          return
+        }
+
         if (
-          state.status === status &&
+          state.status === 'ready' &&
           JSON.stringify(state.snapshots, (key, value: unknown) =>
             key === 'observedAt' ? undefined : value
           ) ===
@@ -207,11 +241,16 @@ export default Plugin.define({
         }
 
         setState((draft) => {
-          draft.status = status
+          draft.status = 'ready'
           draft.snapshots = response.snapshots
         })
       } catch {
-        if (controller.signal.aborted) {
+        if (isDisposed || controller.signal.aborted) {
+          return
+        }
+
+        if (directory !== currentLocation(context).directory) {
+          shouldRefreshAgain = true
           return
         }
 
@@ -234,7 +273,7 @@ export default Plugin.define({
           get when() {
             return context.ui.router.current().type === 'home'
           },
-          children: <Status context={context} state={state} />
+          children: <Status context={context} state={state} refresh={refresh} />
         })
     })
     const stopPromptSlot = context.ui.slot({
@@ -244,18 +283,11 @@ export default Plugin.define({
           get when() {
             return context.ui.router.current().type !== 'home'
           },
-          children: <Status context={context} state={state} />
+          children: <Status context={context} state={state} refresh={refresh} />
         })
     })
     const stopCredentialListener = context.data.on('credential.switched', (event) => {
       if (event.data.integrationID !== 'openai') {
-        return
-      }
-
-      refresh().catch(console.error)
-    })
-    const stopModelListener = context.data.on('session.model.selected', (event) => {
-      if (event.data.previous?.providerID === event.data.model.providerID) {
         return
       }
 
@@ -268,10 +300,10 @@ export default Plugin.define({
     refresh().catch(console.error)
 
     return () => {
+      isDisposed = true
       controller.abort()
       clearInterval(timer)
       stopCredentialListener()
-      stopModelListener()
       stopHomeSlot()
       stopPromptSlot()
     }
