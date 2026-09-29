@@ -2,7 +2,7 @@ import plugin from '../plugins/usage/index.js'
 
 const localPlugin = {
   ...plugin,
-  id: 'local.opencode.usage'
+  id: 'local.usage'
 }
 
 export default localPlugin

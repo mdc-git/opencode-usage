@@ -141,7 +141,7 @@ function Status(props: { context: Plugin.Context; state: State }) {
 }
 
 export default Plugin.define({
-  id: 'opencode.usage.tui',
+  id: 'mdc-git.usage.tui',
   setup(context) {
     const usage = context.client.rpc(usageRpc)
     const [state, setState] = context.storage.memory<State>('quota', {
