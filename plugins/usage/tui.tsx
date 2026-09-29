@@ -81,6 +81,7 @@ function formatGroup(snapshots: QuotaSnapshot[]) {
 
 function Status(props: { context: Plugin.Context; state: State }) {
   const dimensions = useTerminalDimensions()
+  const selectedProvider = () => props.context.ui.model.current()?.providerID
   const groups = () =>
     Map.groupBy(
       props.state.snapshots,
@@ -90,7 +91,7 @@ function Status(props: { context: Plugin.Context; state: State }) {
       .toArray()
 
   return (
-    <Show when={props.context.ui.model.current()?.providerID === 'openai'}>
+    <Show when={selectedProvider() === undefined || selectedProvider() === 'openai'}>
       <box flexDirection="row" gap={1} flexShrink={0}>
         <Show when={props.state.status === 'loading'}>
           <text fg={props.context.theme.text.muted}>…</text>
