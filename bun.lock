@@ -9,7 +9,6 @@
         "zod": "^4.6.5",
       },
       "devDependencies": {
-        "@opencode/theme": "^2.0.19",
         "@opentui/core": "^0.5.12",
         "@opentui/solid": "^0.5.12",
         "@tsconfig/bun": "^1.0.11",
@@ -280,8 +279,6 @@
     "@opencode/protocol": ["@opencode/protocol@2.0.19", "", { "dependencies": { "@opencode/schema": "2.0.19", "effect": "4.0.0-rc.112" } }, "sha512-WUfQX8ltMrry7JDZY5N+x9JaJ7nUJXKvcm2wedRYf3On+eMsQ3+Ln740n03e06pz1FXsozBNdLYPT4q4YsJoCA=="],
 
     "@opencode/schema": ["@opencode/schema@2.0.19", "", { "dependencies": { "@standard-schema/spec": "1.1.0", "effect": "4.0.0-rc.112" } }, "sha512-k7aJtI2XmmPpCWzYeQjbd32A55gx/NOuE0TcpiFGZTZJPGk+W+gYNSbB6XCW4iFhax+Ovb0HaC0UdE2rTRkL4Q=="],
-
-    "@opencode/theme": ["@opencode/theme@2.0.19", "", { "dependencies": { "@opentui/core": "0.5.12", "effect": "4.0.0-rc.112" } }, "sha512-XWmcxHODpsr01Gmtf9cNiAtim1C3m2LmSBYRniEOw2aVOJC4I7bn8msvKtgBW/kzmzcRfIVguv/Wx3IVIDwIfQ=="],
 
     "@opencode/util": ["@opencode/util@2.0.19", "", { "dependencies": { "@effect/opentelemetry": "4.0.0-rc.112", "@effect/platform-node": "4.0.0-rc.112", "@effect/platform-node-shared": "4.0.0-rc.112", "@npmcli/arborist": "9.4.0", "@npmcli/config": "10.8.1", "@opentelemetry/api": "1.9.0", "@opentelemetry/api-logs": "0.219.0", "@opentelemetry/context-async-hooks": "2.8.0", "@opentelemetry/exporter-trace-otlp-http": "0.219.0", "@opentelemetry/resources": "2.8.0", "@opentelemetry/sdk-logs": "0.219.0", "@opentelemetry/sdk-metrics": "2.8.0", "@opentelemetry/sdk-trace-base": "2.8.0", "@opentelemetry/sdk-trace-node": "2.8.0", "cross-spawn": "7.0.6", "effect": "4.0.0-rc.112", "glob": "13.0.5", "mime-types": "3.0.2", "minimatch": "10.2.5", "npm-package-arg": "13.0.2", "open": "11.0.4", "pacote": "21.5.1" } }, "sha512-uenhQbof/3pMDrEozIsQpYHNnPfwIwe2UdlcFOoLApY5m1bmRv4VAOHxwX0Eh0BAyWz2h5ZEz5QoP4qflqFDsQ=="],
 

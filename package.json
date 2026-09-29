@@ -2,6 +2,7 @@
   "name": "opencode-usage",
   "version": "0.1.0",
   "private": true,
+  "repository": "github:mdc-git/opencode-usage",
   "type": "module",
   "exports": {
     ".": "./plugins/usage/index.ts",
@@ -16,12 +17,14 @@
     "check": "bun run prettier --check --config tooling/prettier.json . && bun run eslint --config tooling/eslint.config.js . && bun run tsc --project tooling/tsconfig.json --noEmit",
     "fix": "bun run prettier --write --config tooling/prettier.json . && bun run eslint --config tooling/eslint.config.js . --fix && bun run check"
   },
+  "files": [
+    "plugins"
+  ],
   "dependencies": {
     "@opencode/plugin": "^2.0.19",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@opencode/theme": "^2.0.19",
     "@opentui/core": "^0.5.12",
     "@opentui/solid": "^0.5.12",
     "@tsconfig/bun": "^1.0.11",

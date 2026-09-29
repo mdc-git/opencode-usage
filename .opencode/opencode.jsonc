@@ -1,9 +1,4 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugins": [
-    "-opencode.usage",
-    {
-      "package": "./"
-    }
-  ]
+  "plugins": ["-opencode.usage", "-opencode.usage.*", "./"]
 }

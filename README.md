@@ -1,33 +1,75 @@
 # OpenCode Usage
 
-This project contains a combined OpenCode server and TUI plugin for displaying provider quota information in the TUI footer.
+An OpenCode V2 plugin that displays the active OpenAI ChatGPT quota in the running-session footer.
 
-Production source lives under `plugins/usage`. The `.opencode` directory contains local wrappers and checkout configuration. The server wrapper registers a typed `opencode.usage` RPC, and the TUI wrapper contributes a compact status to `prompt.footer.status`.
+## Features
 
-## Local setup
+- Shows remaining five-hour and seven-day quota percentages with reset times.
+- Uses the active OpenCode-managed ChatGPT OAuth account.
+- Keeps credentials server-side and does not write them to plugin storage.
+- Refreshes at startup, every 60 seconds, and after an OpenAI account switch.
 
-Install dependencies with Bun:
+## Requirements
 
-```sh
-bun install
+- OpenCode V2.
+- Bun for installation and development commands.
+- An active OpenAI ChatGPT OAuth connection for quota data.
+
+## Global GitHub installation
+
+Choose the latest release from the repository's Releases section on GitHub. Replace `<release-tag>` below with that
+release's tag and add the Git package to the global OpenCode configuration at `~/.config/opencode/opencode.jsonc`:
+
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": ["opencode-usage@git+https://github.com/mdc-git/opencode-usage.git#<release-tag>"]
+}
 ```
 
-Run OpenCode from this directory. The local `.opencode/opencode.jsonc` disables the deployed server ID and loads the local wrappers.
+OpenCode loads the server and TUI entrypoints from the package together.
 
-The status refreshes at startup, every 60 seconds, and when the active OpenAI account changes.
+## Local checkout
 
-To enable the checkout from another OpenCode location, add the absolute `.opencode` directory to the global `plugins` list in `opencode.jsonc`.
+Install dependencies and run OpenCode from the repository root:
 
-## Provider adapters
+```sh
+bun install --frozen-lockfile
+opencode --standalone
+```
 
-Provider-specific quota APIs are intentionally kept in `plugins/usage/quota.ts`. Each adapter can use the server plugin context to resolve an OpenCode connection, call the provider usage endpoint, and return normalized quota snapshots.
+The project configuration disables the deployed plugin identities and loads the local wrappers from `.opencode/`.
 
-The OpenAI adapter reads the active ChatGPT OAuth account and displays its Codex windows as remaining percentages with compact reset times. Switching the active OpenAI account with `/connect` triggers an immediate refresh.
+## Usage
 
-The footer displays the provider account and remaining windows when an adapter returns a snapshot. API keys and resolved credentials are not written to plugin storage.
+Start an OpenCode session with the plugin enabled. The footer displays the active account and quota values in this
+format:
 
-## Validation
+```text
+OpenAI account@example.com 76% (19:27) · 42% (in 4 Tagen, 19:45)
+```
+
+The displayed times use German formatting. The account label comes from the active OpenCode connection.
+
+## Development
+
+Install dependencies:
+
+```sh
+bun install --frozen-lockfile
+```
+
+Run repository checks:
 
 ```sh
 bun run check
 ```
+
+Inspect the distributable package contents:
+
+```sh
+bun pm pack --dry-run
+```
+
+Production source lives under `plugins/usage/`. The `.opencode/` directory contains only local checkout wrappers and
+configuration.
