@@ -174,14 +174,24 @@ export default Plugin.define({
       }
 
       isRefreshing = true
-      setState((draft) => {
-        draft.status = 'loading'
-      })
 
       try {
         const response = await usage.snapshot({}, { signal: controller.signal })
+        const status = response.snapshots.length > 0 ? 'ready' : 'empty'
+        if (
+          state.status === status &&
+          JSON.stringify(state.snapshots, (key, value: unknown) =>
+            key === 'observedAt' ? undefined : value
+          ) ===
+            JSON.stringify(response.snapshots, (key, value: unknown) =>
+              key === 'observedAt' ? undefined : value
+            )
+        ) {
+          return
+        }
+
         setState((draft) => {
-          draft.status = response.snapshots.length > 0 ? 'ready' : 'empty'
+          draft.status = status
           draft.snapshots = response.snapshots
         })
       } catch {
