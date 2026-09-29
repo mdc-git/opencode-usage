@@ -1,0 +1,42 @@
+{
+  "name": "opencode-usage",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./plugins/usage/index.ts",
+    "./rpc": "./plugins/usage/rpc.ts",
+    "./tui": "./plugins/usage/tui.tsx"
+  },
+  "sideEffects": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "check": "bun run prettier --check --config tooling/prettier.json . && bun run eslint --config tooling/eslint.config.js . && bun run tsc --project tooling/tsconfig.json --noEmit",
+    "fix": "bun run prettier --write --config tooling/prettier.json . && bun run eslint --config tooling/eslint.config.js . --fix && bun run check"
+  },
+  "dependencies": {
+    "@opencode/plugin": "^2.0.19",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@opencode/theme": "^2.0.19",
+    "@opentui/core": "^0.5.12",
+    "@opentui/solid": "^0.5.12",
+    "@tsconfig/bun": "^1.0.11",
+    "@types/bun": "^1.4.2",
+    "eslint": "^10.11.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-config-xo": "^2.0.0",
+    "prettier": "^3.9.9",
+    "solid-js": "^1.9.12",
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.5.12",
+    "@opentui/solid": ">=0.5.12",
+    "solid-js": ">=1.9.0"
+  },
+  "$schema": "https://json.schemastore.org/package.json"
+}
