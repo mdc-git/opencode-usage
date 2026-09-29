@@ -1,6 +1,6 @@
 # OpenCode Usage
 
-An OpenCode V2 plugin that displays the active OpenAI ChatGPT quota in the running-session footer.
+An OpenCode V2 plugin that displays the active OpenAI ChatGPT quota in the home and running-session footers.
 
 ## Features
 
@@ -42,8 +42,8 @@ The project configuration disables the deployed plugin identities and loads the 
 
 ## Usage
 
-Start an OpenCode session with the plugin enabled. The footer displays the active account and quota values in this
-format:
+Start OpenCode with the plugin enabled. When an OpenAI model is selected, the home and running-session footers display
+the active account and quota values in this format:
 
 ```text
 OpenAI account@example.com · 76% (19:27) · 42% (in 4 Tagen, 19:45)

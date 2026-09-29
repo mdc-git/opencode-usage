@@ -90,27 +90,29 @@ function Status(props: { context: Plugin.Context; state: State }) {
       .toArray()
 
   return (
-    <box flexDirection="row" gap={1} flexShrink={0}>
-      <Show when={props.state.status === 'loading'}>
-        <text fg={props.context.theme.text.muted}>…</text>
-      </Show>
-      <Show when={props.state.status === 'empty'}>
-        <text fg={props.context.theme.text.muted}>—</text>
-      </Show>
-      <Show when={props.state.status === 'error'}>
-        <text fg={props.context.theme.text.feedback.error.base}>!</text>
-      </Show>
-      <Show when={props.state.status === 'ready'}>
-        <Show
-          when={dimensions().width >= 80}
-          fallback={<text fg={props.context.theme.text.muted}>{groups().length} providers</text>}
-        >
-          <For each={groups()}>
-            {(group) => <text fg={props.context.theme.text.muted}>{formatGroup(group)}</text>}
-          </For>
+    <Show when={props.context.ui.model.current()?.providerID === 'openai'}>
+      <box flexDirection="row" gap={1} flexShrink={0}>
+        <Show when={props.state.status === 'loading'}>
+          <text fg={props.context.theme.text.muted}>…</text>
         </Show>
-      </Show>
-    </box>
+        <Show when={props.state.status === 'empty'}>
+          <text fg={props.context.theme.text.muted}>—</text>
+        </Show>
+        <Show when={props.state.status === 'error'}>
+          <text fg={props.context.theme.text.feedback.error.base}>!</text>
+        </Show>
+        <Show when={props.state.status === 'ready'}>
+          <Show
+            when={dimensions().width >= 80}
+            fallback={<text fg={props.context.theme.text.muted}>{groups().length} providers</text>}
+          >
+            <For each={groups()}>
+              {(group) => <text fg={props.context.theme.text.muted}>{formatGroup(group)}</text>}
+            </For>
+          </Show>
+        </Show>
+      </box>
+    </Show>
   )
 }
 
@@ -166,12 +168,31 @@ export default Plugin.define({
       }
     }
 
-    const stopSlot = context.ui.slot({
+    const stopHomeSlot = context.ui.slot({
+      append: 'home.footer.status',
+      render: () => (
+        <Show when={context.ui.router.current().type === 'home'}>
+          <Status context={context} state={state} />
+        </Show>
+      )
+    })
+    const stopPromptSlot = context.ui.slot({
       append: 'prompt.footer.status',
-      render: () => <Status context={context} state={state} />
+      render: () => (
+        <Show when={context.ui.router.current().type !== 'home'}>
+          <Status context={context} state={state} />
+        </Show>
+      )
     })
     const stopCredentialListener = context.data.on('credential.switched', (event) => {
       if (event.data.integrationID !== 'openai') {
+        return
+      }
+
+      refresh().catch(console.error)
+    })
+    const stopModelListener = context.data.on('session.model.selected', (event) => {
+      if (event.data.previous?.providerID === event.data.model.providerID) {
         return
       }
 
@@ -187,7 +208,9 @@ export default Plugin.define({
       controller.abort()
       clearInterval(timer)
       stopCredentialListener()
-      stopSlot()
+      stopModelListener()
+      stopHomeSlot()
+      stopPromptSlot()
     }
   }
 })
