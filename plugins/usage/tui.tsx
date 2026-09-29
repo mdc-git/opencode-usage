@@ -33,25 +33,12 @@ function formatResetAt(resetAt: QuotaSnapshot['resetAt']) {
     return '—'
   }
 
-  const value = new Intl.DateTimeFormat('de-DE', {
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date)
+  const minutes = Math.max(0, Math.floor((date.getTime() - Date.now()) / 60_000))
+  const days = Math.floor(minutes / 1440)
+  const hours = Math.floor((minutes % 1440) / 60)
+  const value = `${hours}:${String(minutes % 60).padStart(2, '0')}`
 
-  const now = new Date()
-  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
-  const resetDay = Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-  const days = Math.round((resetDay - today) / 86_400_000)
-
-  if (days === 1) {
-    return `morgen, ${value}`
-  }
-
-  if (days > 1) {
-    return `in ${days} Tagen, ${value}`
-  }
-
-  return value
+  return days === 0 ? `in ${value}` : `in ${days}d ${value}`
 }
 
 function formatGroup(snapshots: QuotaSnapshot[], isHovered: boolean) {

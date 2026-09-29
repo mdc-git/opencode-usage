@@ -49,13 +49,13 @@ the active account and quota values in this format by default:
 OpenAI account@example.com · 76% · 42%
 ```
 
-Hovering the quota shows the reset times:
+Hovering the quota shows the remaining time until each reset:
 
 ```text
-19:27 · in 4 Tagen, 19:45
+in 3:42 · in 3d 23:19
 ```
 
-The displayed times use German formatting. The account label comes from the active OpenCode connection.
+The account label comes from the active OpenCode connection.
 
 ## Development
 
