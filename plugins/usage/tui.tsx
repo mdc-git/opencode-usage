@@ -2,7 +2,7 @@
 
 import { Plugin } from '@opencode/plugin/tui'
 import { useTerminalDimensions } from '@opentui/solid'
-import { Show, For } from 'solid-js'
+import { Show as show, For as forEach } from 'solid-js'
 import { usageRpc, type QuotaSnapshot, type UsageResponse } from './rpc.js'
 
 type State = {
@@ -90,31 +90,63 @@ function Status(props: { context: Plugin.Context; state: State }) {
       .values()
       .toArray()
 
-  return (
-    <Show when={selectedProvider() === undefined || selectedProvider() === 'openai'}>
-      <box flexDirection="row" gap={1} flexShrink={0}>
-        <Show when={props.state.status === 'loading'}>
-          <text fg={props.context.theme.text.muted}>…</text>
-        </Show>
-        <Show when={props.state.status === 'empty'}>
-          <text fg={props.context.theme.text.muted}>—</text>
-        </Show>
-        <Show when={props.state.status === 'error'}>
-          <text fg={props.context.theme.text.feedback.error.base}>!</text>
-        </Show>
-        <Show when={props.state.status === 'ready'}>
-          <Show
-            when={dimensions().width >= 80}
-            fallback={<text fg={props.context.theme.text.muted}>{groups().length} providers</text>}
-          >
-            <For each={groups()}>
-              {(group) => <text fg={props.context.theme.text.muted}>{formatGroup(group)}</text>}
-            </For>
-          </Show>
-        </Show>
-      </box>
-    </Show>
-  )
+  // Installed TUI sources use runtime JSX, so dynamic conditions need reactive getters.
+  return show({
+    get when() {
+      return selectedProvider() === undefined || selectedProvider() === 'openai'
+    },
+    get children() {
+      return (
+        <box flexDirection="row" gap={1} flexShrink={0}>
+          {show({
+            get when() {
+              return props.state.status === 'loading'
+            },
+            children: <text fg={props.context.theme.text.muted}>…</text>
+          })}
+          {show({
+            get when() {
+              return props.state.status === 'empty'
+            },
+            children: <text fg={props.context.theme.text.muted}>—</text>
+          })}
+          {show({
+            get when() {
+              return props.state.status === 'error'
+            },
+            children: <text fg={props.context.theme.text.feedback.error.base}>!</text>
+          })}
+          {show({
+            get when() {
+              return props.state.status === 'ready'
+            },
+            get children() {
+              return show({
+                get when() {
+                  return dimensions().width >= 80
+                },
+                get fallback() {
+                  return (
+                    <text fg={props.context.theme.text.muted}>{groups().length} providers</text>
+                  )
+                },
+                get children() {
+                  return forEach({
+                    get each() {
+                      return groups()
+                    },
+                    children: (group: QuotaSnapshot[]) => (
+                      <text fg={props.context.theme.text.muted}>{formatGroup(group)}</text>
+                    )
+                  })
+                }
+              })
+            }
+          })}
+        </box>
+      )
+    }
+  })
 }
 
 export default Plugin.define({
@@ -171,19 +203,23 @@ export default Plugin.define({
 
     const stopHomeSlot = context.ui.slot({
       append: 'home.footer.status',
-      render: () => (
-        <Show when={context.ui.router.current().type === 'home'}>
-          <Status context={context} state={state} />
-        </Show>
-      )
+      render: () =>
+        show({
+          get when() {
+            return context.ui.router.current().type === 'home'
+          },
+          children: <Status context={context} state={state} />
+        })
     })
     const stopPromptSlot = context.ui.slot({
       append: 'prompt.footer.status',
-      render: () => (
-        <Show when={context.ui.router.current().type !== 'home'}>
-          <Status context={context} state={state} />
-        </Show>
-      )
+      render: () =>
+        show({
+          get when() {
+            return context.ui.router.current().type !== 'home'
+          },
+          children: <Status context={context} state={state} />
+        })
     })
     const stopCredentialListener = context.data.on('credential.switched', (event) => {
       if (event.data.integrationID !== 'openai') {
