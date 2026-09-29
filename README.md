@@ -7,7 +7,7 @@ An OpenCode V2 plugin that displays the active OpenAI ChatGPT quota in the home 
 - Shows remaining five-hour and seven-day quota percentages and reveals reset times on hover.
 - Uses the active OpenCode-managed ChatGPT OAuth account.
 - Keeps credentials server-side and does not write them to plugin storage.
-- Refreshes at startup, every 60 seconds, after an OpenAI account switch, when the selected model changes provider, and when the active location changes.
+- Refreshes at startup, at the focused session's turn start and end, after an OpenAI account switch, when the selected model changes provider, and when the active location changes.
 
 ## Requirements
 

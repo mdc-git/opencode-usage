@@ -293,17 +293,33 @@ export default Plugin.define({
 
       refresh().catch(console.error)
     })
-    const timer = setInterval(() => {
+    const refreshOnTurn = (event: { data: { sessionID: string } }) => {
+      const route = context.ui.router.current()
+      if (route.type !== 'session' || route.sessionID !== event.data.sessionID) {
+        return
+      }
+
       refresh().catch(console.error)
-    }, 60_000)
+    }
+
+    const stopTurnStartListener = context.data.on('session.execution.started', refreshOnTurn)
+    const stopTurnSucceededListener = context.data.on('session.execution.succeeded', refreshOnTurn)
+    const stopTurnFailedListener = context.data.on('session.execution.failed', refreshOnTurn)
+    const stopTurnInterruptedListener = context.data.on(
+      'session.execution.interrupted',
+      refreshOnTurn
+    )
 
     refresh().catch(console.error)
 
     return () => {
       isDisposed = true
       controller.abort()
-      clearInterval(timer)
       stopCredentialListener()
+      stopTurnStartListener()
+      stopTurnSucceededListener()
+      stopTurnFailedListener()
+      stopTurnInterruptedListener()
       stopHomeSlot()
       stopPromptSlot()
     }
