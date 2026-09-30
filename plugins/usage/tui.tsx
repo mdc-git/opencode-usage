@@ -55,11 +55,8 @@ function formatGroup(snapshots: QuotaSnapshot[], isHovered: boolean) {
 
 function currentLocation(context: Plugin.Context) {
   const route = context.ui.router.current()
-  return route.type === 'session'
-    ? (context.data.session.get(route.sessionID)?.location ??
-        context.location ??
-        context.data.location.default())
-    : (context.location ?? context.data.location.default())
+  const session = route.type === 'session' ? context.data.session.get(route.sessionID) : undefined
+  return session?.location ?? context.location ?? context.data.location.default()
 }
 
 function Status(props: { context: Plugin.Context; state: State; refresh: () => Promise<void> }) {
@@ -179,7 +176,6 @@ export default Plugin.define({
     const controller = new AbortController()
     let isRefreshing = false
     let shouldRefreshAgain = false
-    let isDisposed = false
 
     const refresh = async () => {
       if (controller.signal.aborted) {
@@ -202,7 +198,7 @@ export default Plugin.define({
             location: { directory }
           }
         )
-        if (isDisposed) {
+        if (controller.signal.aborted) {
           return
         }
 
@@ -211,14 +207,12 @@ export default Plugin.define({
           return
         }
 
+        const ignoreObservedAt = (key: string, value: unknown) =>
+          key === 'observedAt' ? undefined : value
         if (
           state.status === 'ready' &&
-          JSON.stringify(state.snapshots, (key, value: unknown) =>
-            key === 'observedAt' ? undefined : value
-          ) ===
-            JSON.stringify(response.snapshots, (key, value: unknown) =>
-              key === 'observedAt' ? undefined : value
-            )
+          JSON.stringify(state.snapshots, ignoreObservedAt) ===
+            JSON.stringify(response.snapshots, ignoreObservedAt)
         ) {
           return
         }
@@ -228,7 +222,7 @@ export default Plugin.define({
           draft.snapshots = response.snapshots
         })
       } catch {
-        if (isDisposed || controller.signal.aborted) {
+        if (controller.signal.aborted) {
           return
         }
 
@@ -249,7 +243,7 @@ export default Plugin.define({
       }
     }
 
-    const stopHomeSlot = context.ui.slot({
+    context.ui.slot({
       append: 'home.footer.status',
       render: () =>
         show({
@@ -259,7 +253,7 @@ export default Plugin.define({
           children: <Status context={context} state={state} refresh={refresh} />
         })
     })
-    const stopPromptSlot = context.ui.slot({
+    context.ui.slot({
       append: 'prompt.footer.status',
       render: () =>
         show({
@@ -268,13 +262,6 @@ export default Plugin.define({
           },
           children: <Status context={context} state={state} refresh={refresh} />
         })
-    })
-    const stopCredentialListener = context.data.on('credential.switched', (event) => {
-      if (event.data.integrationID !== 'openai') {
-        return
-      }
-
-      refresh().catch(console.error)
     })
     const refreshOnTurn = (event: { data: { sessionID: string } }) => {
       const route = context.ui.router.current()
@@ -285,26 +272,25 @@ export default Plugin.define({
       refresh().catch(console.error)
     }
 
-    const stopTurnStartListener = context.data.on('session.execution.started', refreshOnTurn)
-    const stopTurnSucceededListener = context.data.on('session.execution.succeeded', refreshOnTurn)
-    const stopTurnFailedListener = context.data.on('session.execution.failed', refreshOnTurn)
-    const stopTurnInterruptedListener = context.data.on(
-      'session.execution.interrupted',
-      refreshOnTurn
-    )
+    const stopListeners = [
+      context.data.on('credential.switched', (event) => {
+        if (event.data.integrationID === 'openai') {
+          refresh().catch(console.error)
+        }
+      }),
+      context.data.on('session.execution.started', refreshOnTurn),
+      context.data.on('session.execution.succeeded', refreshOnTurn),
+      context.data.on('session.execution.failed', refreshOnTurn),
+      context.data.on('session.execution.interrupted', refreshOnTurn)
+    ]
 
     refresh().catch(console.error)
 
     return () => {
-      isDisposed = true
       controller.abort()
-      stopCredentialListener()
-      stopTurnStartListener()
-      stopTurnSucceededListener()
-      stopTurnFailedListener()
-      stopTurnInterruptedListener()
-      stopHomeSlot()
-      stopPromptSlot()
+      for (const stop of stopListeners) {
+        stop()
+      }
     }
   }
 })
