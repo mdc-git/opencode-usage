@@ -96,9 +96,25 @@ function Status(props: { context: Plugin.Context; state: State; refresh: () => P
           gap={1}
           flexShrink={0}
           onMouseOver={() => {
+            if (isHovered()) {
+              return
+            }
+
             setIsHovered(true)
+            props.refresh().catch(console.error)
           }}
-          onMouseOut={() => {
+          onMouseOut={(event) => {
+            const target = event.currentTarget
+            if (
+              target !== null &&
+              event.x >= target.screenX &&
+              event.x < target.screenX + target.width &&
+              event.y >= target.screenY &&
+              event.y < target.screenY + target.height
+            ) {
+              return
+            }
+
             setIsHovered(false)
           }}
         >
