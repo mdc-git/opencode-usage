@@ -34,7 +34,7 @@
     "eslint-config-xo": "^2.0.0",
     "prettier": "^3.9.9",
     "solid-js": "^1.9.12",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "peerDependencies": {
     "@opentui/core": ">=0.5.12",
