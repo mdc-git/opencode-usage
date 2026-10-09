@@ -33,7 +33,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-config-xo": "^2.0.0",
     "prettier": "^3.9.9",
-    "solid-js": "^1.9.12",
+    "solid-js": "^1.9.15",
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
