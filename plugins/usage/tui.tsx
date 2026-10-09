@@ -215,7 +215,7 @@ function Status(props: { context: StatusContext; state: State; refresh: () => Pr
   })
 }
 
-export default {
+const usageTuiPlugin = {
   id: 'mdc-git.usage.tui',
   setup(context: Plugin.Context) {
     const usage = context.client.rpc(usageRpc)
@@ -346,3 +346,5 @@ export default {
     }
   }
 }
+
+export default usageTuiPlugin
