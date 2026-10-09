@@ -2,7 +2,7 @@ import type { Plugin } from '@opencode/plugin'
 import { readQuotas } from './quota.js'
 import { usageRpc } from './rpc.js'
 
-export default {
+const usagePlugin = {
   id: 'mdc-git.usage',
   async setup(context: Plugin.Context) {
     await context.rpc.register(usageRpc, {
@@ -17,3 +17,5 @@ export default {
     })
   }
 }
+
+export default usagePlugin
