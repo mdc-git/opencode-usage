@@ -1,6 +1,6 @@
 /** @jsxImportSource @opentui/solid */
 
-import { Plugin } from '@opencode/plugin/tui'
+import type { Plugin } from '@opencode/plugin/tui'
 import type { RGBA } from '@opentui/core'
 import { useTerminalDimensions } from '@opentui/solid'
 import { jsx } from '@opentui/solid/jsx-runtime'
@@ -215,9 +215,9 @@ function Status(props: { context: StatusContext; state: State; refresh: () => Pr
   })
 }
 
-export default Plugin.define({
+const usageTuiPlugin = {
   id: 'mdc-git.usage.tui',
-  setup(context) {
+  setup(context: Plugin.Context) {
     const usage = context.client.rpc(usageRpc)
     const [state, setState] = context.storage.memory<State>('quota', {
       initial: {
@@ -345,4 +345,6 @@ export default Plugin.define({
       }
     }
   }
-})
+}
+
+export default usageTuiPlugin
