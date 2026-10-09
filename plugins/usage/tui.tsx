@@ -1,10 +1,46 @@
 /** @jsxImportSource @opentui/solid */
 
 import { Plugin } from '@opencode/plugin/tui'
+import type { RGBA } from '@opentui/core'
 import { useTerminalDimensions } from '@opentui/solid'
 import { jsx } from '@opentui/solid/jsx-runtime'
 import { Show as show, For as forEach, createEffect, createSignal, on } from 'solid-js'
 import { usageRpc, type QuotaSnapshot } from './rpc.js'
+
+type LocationContext = {
+  location?: { directory: string }
+  ui: {
+    router: {
+      current: () => { type: 'home' } | { type: 'session'; sessionID: string } | { type: 'plugin' }
+    }
+  }
+  data: {
+    session: {
+      get: (sessionID: string) => { location?: { directory: string } } | undefined
+    }
+    location: {
+      default: () => { directory: string }
+    }
+  }
+}
+
+type StatusContext = LocationContext & {
+  theme: {
+    text: {
+      muted: RGBA
+      feedback: {
+        error: {
+          base: RGBA
+        }
+      }
+    }
+  }
+  ui: LocationContext['ui'] & {
+    model: {
+      current: () => { providerID?: string } | undefined
+    }
+  }
+}
 
 type State = {
   status: 'loading' | 'ready' | 'error'
@@ -53,13 +89,13 @@ function formatGroup(snapshots: QuotaSnapshot[], isHovered: boolean) {
     : `${provider}${account === undefined ? '' : ` ${account}`} · ${windows}`
 }
 
-function currentLocation(context: Plugin.Context) {
+function currentLocation(context: LocationContext) {
   const route = context.ui.router.current()
   const session = route.type === 'session' ? context.data.session.get(route.sessionID) : undefined
   return session?.location ?? context.location ?? context.data.location.default()
 }
 
-function Status(props: { context: Plugin.Context; state: State; refresh: () => Promise<void> }) {
+function Status(props: { context: StatusContext; state: State; refresh: () => Promise<void> }) {
   const dimensions = useTerminalDimensions()
   const [isHovered, setIsHovered] = createSignal(false)
   const groups = () =>
