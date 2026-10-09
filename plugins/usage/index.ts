@@ -1,10 +1,10 @@
-import { Plugin } from '@opencode/plugin'
+import type { Plugin } from '@opencode/plugin'
 import { readQuotas } from './quota.js'
 import { usageRpc } from './rpc.js'
 
-export default Plugin.define({
+export default {
   id: 'mdc-git.usage',
-  async setup(context) {
+  async setup(context: Plugin.Context) {
     await context.rpc.register(usageRpc, {
       async snapshot(_input, { signal }) {
         const snapshots = await readQuotas(context, signal)
@@ -16,4 +16,4 @@ export default Plugin.define({
       }
     })
   }
-})
+}
