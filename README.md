@@ -4,16 +4,20 @@ An OpenCode V2 plugin that displays the active OpenAI ChatGPT quota in the home 
 
 ## Features
 
-- Shows remaining five-hour and seven-day quota percentages and reveals reset times on hover.
+- Shows remaining five-hour and seven-day quota percentages and reveals reset times on hover, or the reason when data is unavailable.
 - Uses the active OpenCode-managed ChatGPT OAuth account.
 - Keeps credentials server-side and does not write them to plugin storage.
+- Reports when the active account's ChatGPT usage limit already blocks its model requests.
 - Refreshes at startup, at the focused session's turn start and end, after an OpenAI account switch, when the selected model changes provider, and when the active location changes.
 
 ## Requirements
 
 - OpenCode V2.
 - Bun for installation and development commands.
-- An active OpenAI ChatGPT OAuth connection for quota data.
+- An active OpenAI ChatGPT OAuth connection for quota data. OpenAI's usage API only accepts connections
+  that store a ChatGPT account ID, which the legacy Codex sign-in methods provide. The newer
+  Sign in with ChatGPT flow does not expose the usage API, so its connections show a reason instead of
+  quota values.
 
 ## Global GitHub installation
 
@@ -54,6 +58,10 @@ Hovering the quota shows the remaining time until each reset:
 ```text
 in 3:42 · in 3d 23:19
 ```
+
+When no data is available, the hover shows the reason instead. OpenAI's newer Sign in with ChatGPT flow
+does not expose its usage API, so connections signed in that way show why nothing can be displayed, and
+show `Usage limit reached` once this account's model requests report hitting the limit.
 
 The account label comes from the active OpenCode connection.
 

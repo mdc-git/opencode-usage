@@ -81,7 +81,15 @@ function formatResetAt(resetAt: QuotaSnapshot['resetAt']) {
 function formatGroup(snapshots: QuotaSnapshot[], isHovered: boolean) {
   const { provider, account } = snapshots[0]
   const windows = snapshots
-    .map((snapshot) => (isHovered ? formatResetAt(snapshot.resetAt) : formatRemaining(snapshot)))
+    .map((snapshot) => {
+      if (!isHovered) {
+        return formatRemaining(snapshot)
+      }
+
+      return snapshot.status === 'unavailable' && snapshot.message !== undefined
+        ? snapshot.message
+        : formatResetAt(snapshot.resetAt)
+    })
     .join(' · ')
 
   return isHovered

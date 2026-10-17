@@ -1,9 +1,25 @@
-import type { Plugin } from '@opencode/plugin'
+import type { Credential, Plugin } from '@opencode/plugin'
 import { z } from 'zod'
 import type { QuotaSnapshot } from './rpc.js'
 
 const OPENAI_USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage'
 const REQUEST_TIMEOUT_MS = 10_000
+const TOKEN_SHARING_METHOD_ID = 'chatgpt-token-sharing'
+export const USAGE_LIMIT_CODE = 'subscription_sharing_usage_limit_exceeded'
+
+/**
+Observed plan-limit state of the active ChatGPT connection's model requests. OpenAI's token
+sharing sign-in exposes limits only through request errors, so this latch is the only source.
+*/
+let isUsageLimitReached = false
+
+export function reportUsageLimitReached() {
+  isUsageLimitReached = true
+}
+
+export function reportUsageRequestAllowed() {
+  isUsageLimitReached = false
+}
 
 const usageWindowSchema = z.preprocess(
   (value) => {
@@ -73,32 +89,17 @@ export async function readQuotas(
       return [unavailable('The active OpenAI account is not a ChatGPT OAuth account', account)]
     }
 
-    const accountId = credential.metadata?.accountID
-    const response = await fetch(OPENAI_USAGE_URL, {
-      headers: {
-        authorization: `Bearer ${credential.access}`,
-        'user-agent': 'codex-cli',
-        ...(typeof accountId === 'string' && {
-          'chatgpt-account-id': accountId
-        })
-      },
-      signal: AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
-    })
-
-    if (!response.ok) {
-      return [unavailable(`Usage endpoint returned HTTP ${response.status}`, account)]
+    if (typeof credential.metadata?.accountID === 'string') {
+      return await readAccountUsage(credential, account, signal)
     }
 
-    const payload = openAiUsageSchema.parse(await response.json())
-    const windows = [payload.rateLimit?.primaryWindow, payload.rateLimit?.secondaryWindow]
-    const observedAt = new Date().toISOString()
-    const snapshots = windows.flatMap((window) =>
-      window ? [snapshotForWindow(window, observedAt, account)] : []
-    )
+    if (isUsageLimitReached && credential.methodID === TOKEN_SHARING_METHOD_ID) {
+      return [unavailable('Usage limit reached', account)]
+    }
 
-    return snapshots.length > 0
-      ? snapshots
-      : [unavailable('No quota windows were returned', account)]
+    return [
+      unavailable('OpenAI does not expose usage for the ChatGPT sign-in of this account', account)
+    ]
   } catch (error) {
     if (signal.aborted) {
       throw error
@@ -108,6 +109,37 @@ export async function readQuotas(
       unavailable(error instanceof Error ? error.message : 'Unable to read OpenAI usage', account)
     ]
   }
+}
+
+async function readAccountUsage(
+  credential: Credential.OAuth,
+  account: string,
+  signal: AbortSignal
+): Promise<QuotaSnapshot[]> {
+  const accountId = credential.metadata?.accountID
+  const response = await fetch(OPENAI_USAGE_URL, {
+    headers: {
+      authorization: `Bearer ${credential.access}`,
+      'user-agent': 'codex-cli',
+      ...(typeof accountId === 'string' && {
+        'chatgpt-account-id': accountId
+      })
+    },
+    signal: AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)])
+  })
+
+  if (!response.ok) {
+    return [unavailable(`Usage endpoint returned HTTP ${response.status}`, account)]
+  }
+
+  const payload = openAiUsageSchema.parse(await response.json())
+  const windows = [payload.rateLimit?.primaryWindow, payload.rateLimit?.secondaryWindow]
+  const observedAt = new Date().toISOString()
+  const snapshots = windows.flatMap((window) =>
+    window ? [snapshotForWindow(window, observedAt, account)] : []
+  )
+
+  return snapshots.length > 0 ? snapshots : [unavailable('No quota windows were returned', account)]
 }
 
 function snapshotForWindow(
