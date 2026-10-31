@@ -4,7 +4,15 @@ import type { Plugin } from '@opencode/plugin/tui'
 import type { RGBA } from '@opentui/core'
 import { useTerminalDimensions } from '@opentui/solid'
 import { jsx } from '@opentui/solid/jsx-runtime'
-import { Show as show, For as forEach, createEffect, createRoot, createSignal, on } from 'solid-js'
+import {
+  Show as show,
+  For as forEach,
+  createEffect,
+  createMemo,
+  createRoot,
+  createSignal,
+  on
+} from 'solid-js'
 import { usageRpc, type QuotaSnapshot } from './rpc.js'
 
 type LocationContext = {
@@ -236,13 +244,16 @@ const usageTuiPlugin = {
       }
     })
     const controller = new AbortController()
-    let isRefreshing = false
+    let activeRequest: AbortController | undefined
     let shouldRefreshAgain = false
     let revision = 0
     let selected = ''
 
     const invalidate = () => {
       revision++
+      activeRequest?.abort()
+      activeRequest = undefined
+      shouldRefreshAgain = false
       setState((draft) => {
         draft.status = 'loading'
         draft.snapshots = []
@@ -260,12 +271,14 @@ const usageTuiPlugin = {
         invalidate()
       }
 
-      if (isRefreshing) {
+      if (activeRequest) {
         shouldRefreshAgain = true
         return
       }
 
-      isRefreshing = true
+      const request = new AbortController()
+      activeRequest = request
+      const signal = AbortSignal.any([controller.signal, request.signal])
       const { directory } = currentLocation(context)
       const model = context.ui.model.current()
       const providerId = model?.providerID ?? 'openai'
@@ -276,11 +289,11 @@ const usageTuiPlugin = {
         const response = await context.client.rpc(usageRpc).snapshot(
           { providerId, modelId: model?.modelID, variant: model?.variant },
           {
-            signal: controller.signal,
+            signal,
             location: { directory }
           }
         )
-        if (controller.signal.aborted) {
+        if (signal.aborted) {
           return
         }
 
@@ -304,7 +317,7 @@ const usageTuiPlugin = {
           draft.snapshots = response.snapshots
         })
       } catch {
-        if (controller.signal.aborted) {
+        if (signal.aborted) {
           return
         }
 
@@ -317,10 +330,12 @@ const usageTuiPlugin = {
           draft.status = 'error'
         })
       } finally {
-        isRefreshing = false
-        if (shouldRefreshAgain && !controller.signal.aborted) {
-          shouldRefreshAgain = false
-          await refresh()
+        if (activeRequest === request) {
+          activeRequest = undefined
+          if (shouldRefreshAgain && !controller.signal.aborted) {
+            shouldRefreshAgain = false
+            await refresh()
+          }
         }
       }
     }
@@ -370,13 +385,11 @@ const usageTuiPlugin = {
     ]
 
     const stopRefresh = createRoot((dispose) => {
+      const key = createMemo(() => selectionKey(context))
       createEffect(
-        on(
-          () => selectionKey(context),
-          () => {
-            refresh().catch(console.error)
-          }
-        )
+        on(key, () => {
+          refresh().catch(console.error)
+        })
       )
       return dispose
     })
