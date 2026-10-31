@@ -9,7 +9,7 @@ An OpenCode V2 plugin that displays the selected provider's account quota in the
 - Uses the active OpenCode-managed ChatGPT OAuth account or Claude Code login.
 - Keeps credentials server-side and does not write them to plugin storage.
 - Reports when the active account's ChatGPT usage limit already blocks its model requests.
-- Refreshes at startup, at the focused session's turn start and end, after an account switch, when the selected model or variant changes, and when the active location changes. Claude usage requests share an in-flight lookup and are cached for at least one minute to limit requests to its usage endpoint.
+- Refreshes at startup, when switching session tabs, at the focused session's turn start and end, after an account switch, when the selected model or variant changes, and when the active location changes. Claude usage requests share an in-flight lookup and are cached for at least one minute to limit requests to its usage endpoint.
 
 ## Requirements
 

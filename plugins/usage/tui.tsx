@@ -4,7 +4,7 @@ import type { Plugin } from '@opencode/plugin/tui'
 import type { RGBA } from '@opentui/core'
 import { useTerminalDimensions } from '@opentui/solid'
 import { jsx } from '@opentui/solid/jsx-runtime'
-import { Show as show, For as forEach, createEffect, createSignal, on } from 'solid-js'
+import { Show as show, For as forEach, createEffect, createRoot, createSignal, on } from 'solid-js'
 import { usageRpc, type QuotaSnapshot } from './rpc.js'
 
 type LocationContext = {
@@ -104,7 +104,13 @@ function currentLocation(context: LocationContext) {
 }
 
 function selectionKey(context: StatusContext) {
-  return JSON.stringify([context.ui.model.current(), currentLocation(context).directory])
+  const route = context.ui.router.current()
+  return JSON.stringify([
+    route.type,
+    route.type === 'session' ? route.sessionID : undefined,
+    context.ui.model.current(),
+    currentLocation(context).directory
+  ])
 }
 
 function Status(props: { context: StatusContext; state: State; refresh: () => Promise<void> }) {
@@ -123,16 +129,6 @@ function Status(props: { context: StatusContext; state: State; refresh: () => Pr
     )
       .values()
       .toArray()
-
-  createEffect(
-    on(
-      () => selectionKey(props.context),
-      async () => {
-        await props.refresh().catch(console.error)
-      },
-      { defer: true }
-    )
-  )
 
   // Installed TUI sources use runtime JSX, so dynamic conditions need reactive getters.
   return show({
@@ -373,10 +369,21 @@ const usageTuiPlugin = {
       context.data.on('session.execution.interrupted', refreshOnTurn)
     ]
 
-    refresh().catch(console.error)
+    const stopRefresh = createRoot((dispose) => {
+      createEffect(
+        on(
+          () => selectionKey(context),
+          () => {
+            refresh().catch(console.error)
+          }
+        )
+      )
+      return dispose
+    })
 
     return () => {
       controller.abort()
+      stopRefresh()
       for (const stop of stopListeners) {
         stop()
       }
