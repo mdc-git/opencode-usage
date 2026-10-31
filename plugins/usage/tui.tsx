@@ -37,7 +37,7 @@ type StatusContext = LocationContext & {
   }
   ui: LocationContext['ui'] & {
     model: {
-      current: () => { providerID?: string } | undefined
+      current: () => { providerID?: string; modelID?: string; variant?: string } | undefined
     }
   }
 }
@@ -103,12 +103,22 @@ function currentLocation(context: LocationContext) {
   return session?.location ?? context.location ?? context.data.location.default()
 }
 
+function selectionKey(context: StatusContext) {
+  return JSON.stringify([context.ui.model.current(), currentLocation(context).directory])
+}
+
 function Status(props: { context: StatusContext; state: State; refresh: () => Promise<void> }) {
   const dimensions = useTerminalDimensions()
   const [isHovered, setIsHovered] = createSignal(false)
   const groups = () =>
     Map.groupBy(
-      props.state.snapshots,
+      props.state.snapshots.filter(
+        (snapshot) =>
+          snapshot.provider ===
+          (props.context.ui.model.current()?.providerID === 'claude-agent'
+            ? 'Claude Agent'
+            : 'OpenAI')
+      ),
       (snapshot) => `${snapshot.provider}\u{0}${snapshot.account ?? ''}`
     )
       .values()
@@ -116,10 +126,7 @@ function Status(props: { context: StatusContext; state: State; refresh: () => Pr
 
   createEffect(
     on(
-      () => [
-        props.context.ui.model.current()?.providerID,
-        currentLocation(props.context).directory
-      ],
+      () => selectionKey(props.context),
       async () => {
         await props.refresh().catch(console.error)
       },
@@ -131,7 +138,7 @@ function Status(props: { context: StatusContext; state: State; refresh: () => Pr
   return show({
     get when() {
       const provider = props.context.ui.model.current()?.providerID
-      return provider === undefined || provider === 'openai'
+      return provider === undefined || ['openai', 'claude-agent'].includes(provider)
     },
     get children() {
       return (
@@ -226,7 +233,6 @@ function Status(props: { context: StatusContext; state: State; refresh: () => Pr
 const usageTuiPlugin = {
   id: 'mdc-git.usage.tui',
   setup(context: Plugin.Context) {
-    const usage = context.client.rpc(usageRpc)
     const [state, setState] = context.storage.memory<State>('quota', {
       initial: {
         status: 'loading',
@@ -236,10 +242,26 @@ const usageTuiPlugin = {
     const controller = new AbortController()
     let isRefreshing = false
     let shouldRefreshAgain = false
+    let revision = 0
+    let selected = ''
+
+    const invalidate = () => {
+      revision++
+      setState((draft) => {
+        draft.status = 'loading'
+        draft.snapshots = []
+      })
+    }
 
     const refresh = async () => {
       if (controller.signal.aborted) {
         return
+      }
+
+      const key = selectionKey(context)
+      if (key !== selected) {
+        selected = key
+        invalidate()
       }
 
       if (isRefreshing) {
@@ -249,10 +271,14 @@ const usageTuiPlugin = {
 
       isRefreshing = true
       const { directory } = currentLocation(context)
+      const model = context.ui.model.current()
+      const providerId = model?.providerID ?? 'openai'
+      const requestRevision = revision
+      const isCurrent = () => requestRevision === revision && key === selectionKey(context)
 
       try {
-        const response = await usage.snapshot(
-          {},
+        const response = await context.client.rpc(usageRpc).snapshot(
+          { providerId, modelId: model?.modelID, variant: model?.variant },
           {
             signal: controller.signal,
             location: { directory }
@@ -262,13 +288,13 @@ const usageTuiPlugin = {
           return
         }
 
-        if (directory !== currentLocation(context).directory) {
+        if (!isCurrent()) {
           shouldRefreshAgain = true
           return
         }
 
-        const ignoreObservedAt = (key: string, value: unknown) =>
-          key === 'observedAt' ? undefined : value
+        const ignoreObservedAt = (field: string, value: unknown) =>
+          field === 'observedAt' ? undefined : value
         if (
           state.status === 'ready' &&
           JSON.stringify(state.snapshots, ignoreObservedAt) ===
@@ -286,7 +312,7 @@ const usageTuiPlugin = {
           return
         }
 
-        if (directory !== currentLocation(context).directory) {
+        if (!isCurrent()) {
           shouldRefreshAgain = true
           return
         }
@@ -334,9 +360,12 @@ const usageTuiPlugin = {
 
     const stopListeners = [
       context.data.on('credential.switched', (event) => {
-        if (event.data.integrationID === 'openai') {
-          refresh().catch(console.error)
+        if (event.data.integrationID !== (context.ui.model.current()?.providerID ?? 'openai')) {
+          return
         }
+
+        invalidate()
+        refresh().catch(console.error)
       }),
       context.data.on('session.execution.started', refreshOnTurn),
       context.data.on('session.execution.succeeded', refreshOnTurn),

@@ -6,6 +6,7 @@ import {
   USAGE_LIMIT_CODE
 } from './quota.js'
 import { usageRpc } from './rpc.js'
+import { readClaudeQuotas } from './claude.js'
 
 const OPENAI_PROVIDER_ID = 'openai'
 
@@ -33,8 +34,13 @@ const usagePlugin = {
       })
     ]
     await context.rpc.register(usageRpc, {
-      async snapshot(_input, { signal }) {
-        const snapshots = await readQuotas(context, signal)
+      async snapshot({ providerId, ...selection }, { signal }) {
+        const snapshots =
+          providerId === 'claude-agent'
+            ? await readClaudeQuotas(context, signal, selection)
+            : providerId === OPENAI_PROVIDER_ID
+              ? await readQuotas(context, signal)
+              : []
         return {
           fetchedAt: new Date().toISOString(),
           snapshots,

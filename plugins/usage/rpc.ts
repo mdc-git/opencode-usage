@@ -22,12 +22,17 @@ const usageResponseSchema = z.object({
 
 export type QuotaSnapshot = z.infer<typeof quotaSnapshotSchema>
 export type UsageResponse = z.infer<typeof usageResponseSchema>
+export type QuotaSelection = { modelId?: string; variant?: string }
 
 export const usageRpc = Rpc.define({
   id: 'opencode.usage',
   methods: {
     snapshot: {
-      input: z.object({}),
+      input: z.object({
+        providerId: z.string().default('openai'),
+        modelId: z.string().optional(),
+        variant: z.string().optional()
+      }),
       output: usageResponseSchema
     }
   },
